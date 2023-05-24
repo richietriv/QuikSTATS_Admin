@@ -6,7 +6,6 @@ const cors = require("cors");
 const app = express();
 const { spawn } = require('child_process');
 
-
 const httpServer = http.createServer(app);
 const server = new socketio.Server(httpServer, {
   cors: {
@@ -32,86 +31,97 @@ const getRows = () => {
       return;
     }
 
-    // Process the query result
-    //console.log("Query result:", result.rows);
-    const rows = result.rows;
-    // Emit the result to the client socket
+    const rows = result.rows.reverse();
     server.emit("message", rows);
   });
 };
 
-setInterval(() => getRows(), 2000);
+setInterval(getRows, 2000);
 
-// server.on("connection", (socket) => {
-//   const currentDate = new Date();
-//   console.log(currentDate);
-// });
+const runningScripts = {}; // Object to store the status of running scripts
 
+const pythonInterpreterScripts = ["CAD_Sender_NEW", "ArcGIS_main"];
+const condaInterpreterScripts= ["LSBUD0"];
 
+const startPythonScript = (scriptName) => {
 
-// handle python scripts ---------------------------------------------------------------- 
+  let pythonInterpreter // select the corret interpreter ------
+  if (pythonInterpreterScripts.includes(scriptName)) {
+    console.log('first')
+    pythonInterpreter = 'C:\\Users\\richi\\PycharmProjects\\docker_proj2\\venv\\Scripts\\python.exe';
+  } else if (condaInterpreterScripts.includes(scriptName)) {
+    console.log('second')
+    pythonInterpreter = 'C:\\Users\\richi\\PycharmProjects\\docker_proj2\\venv\\Scripts\\python.exe';
+  };
+  
+  const scriptPath = `C:\\Users\\richi\\PycharmProjects\\docker_proj2\\${scriptName}.py`;
 
-let pythonScript; // Reference to the running Python script
-let scriptName;
-const pythonInterpreter = 'C:\\Users\\richi\\PycharmProjects\\docker_proj2\\venv\\Scripts\\python.exe'
-// Function to start the Python script
-const startPythonScript = () => {
-  pythonScript = spawn(pythonInterpreter, [`C:\\Users\\richi\\PycharmProjects\\docker_proj2\\${scriptName}`]);
+  const pythonScript = spawn(pythonInterpreter, [scriptPath]);
+
+  runningScripts[scriptName] = pythonScript; // Store the script reference by its name
 
   pythonScript.stdout.on('data', (data) => {
-    // Handle script output
     console.log(`Script output: ${data}`);
   });
 
   pythonScript.stderr.on('data', (error) => {
-    // Handle script errors
     console.error(`Script error: ${error}`);
   });
 
   pythonScript.on('close', (code) => {
-    // Handle script close event
     console.log(`Script exited with code ${code}`);
+    delete runningScripts[scriptName]; // Remove the script reference when it is stopped
   });
 };
 
-// Function to stop the Python script
-const stopPythonScript = () => {
+const stopPythonScript = (scriptName) => {
+  const pythonScript = runningScripts[scriptName];
+
   if (pythonScript) {
-    pythonScript.kill('SIGINT'); // Terminate the script process gracefully
-    pythonScript = null; // Reset the reference
-    console.log('Script stopped');
+    pythonScript.kill('SIGINT');
+    delete runningScripts[scriptName];
+    console.log(`Script '${scriptName}' stopped`);
   } else {
-    console.log('No script running');
+    console.log(`Script '${scriptName}' is not running`);
   }
 };
 
-// Express route to start the script
 app.post('/start-script', (req, res) => {
-  console.log(req.body.script)
-  scriptName = `${req.body.script}.py`
-  startPythonScript();
-  res.send('Script started');
+  const scriptName = req.body.script;
+
+  if (!runningScripts[scriptName]) {
+    startPythonScript(scriptName);
+    console.log(`Script '${scriptName}' started`);
+    res.send(`Script '${scriptName}' started`);
+  } else {
+    console.log(`Script '${scriptName}' is already running`);
+    res.send(`Script '${scriptName}' is already running`);
+  }
 });
 
-// Express route to stop the script
 app.post('/stop-script', (req, res) => {
-  stopPythonScript();
-  res.send('Script stopped');
+  const scriptName = req.body.script;
+
+  if (runningScripts[scriptName]) {
+    stopPythonScript(scriptName);
+    console.log(`Script '${scriptName}' stopped`);
+    res.send(`Script '${scriptName}' stopped`);
+  } else {
+    console.log(`Script '${scriptName}' is not running`);
+    res.send(`Script '${scriptName}' is not running`);
+  }
 });
 
-//Express route to get the script status
 app.get('/script-status', (req, res) => {
-  const scriptOn = !!pythonScript; // Check if the script is running
+  const scriptStatus = {};
 
-  res.json({ scriptOn });
+  for (const scriptName in runningScripts) {
+    scriptStatus[scriptName] = true; // Set the status to true (running) for each script in runningScripts
+  }
+
+  res.json(scriptStatus);
 });
-
-// handle python scripts ---------------------------------------------------------------- 
-
-
 
 httpServer.listen(9000, () => {
   console.log("Server is listening on port 9000");
 });
-
-
