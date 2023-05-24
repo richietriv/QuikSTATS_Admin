@@ -118,6 +118,10 @@ app.get('/script-status', (req, res) => {
   for (const scriptName in runningScripts) {
     scriptStatus[scriptName] = true; // Set the status to true (running) for each script in runningScripts
   }
+  console.log(scriptStatus, 'hello')
+  if (!scriptStatus) {
+    scriptStatus[scriptName] = false; 
+  }
 
   res.json(scriptStatus);
 });
