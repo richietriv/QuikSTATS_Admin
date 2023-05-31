@@ -96,6 +96,9 @@ app.post('/start-script', (req, res) => {
   } else {
     console.log(`Script '${scriptName}' is already running`);
     res.send(`Script '${scriptName}' is already running`);
+     // Emit script status update event
+     console.log(`Emitting script status update for '${scriptName}' - Status: ${true}`);
+     server.emit("script-status-update", { script: scriptName, status: true });
   }
 });
 
@@ -106,9 +109,13 @@ app.post('/stop-script', (req, res) => {
     stopPythonScript(scriptName);
     console.log(`Script '${scriptName}' stopped`);
     res.send(`Script '${scriptName}' stopped`);
+    
   } else {
     console.log(`Script '${scriptName}' is not running`);
     res.send(`Script '${scriptName}' is not running`);
+     // Emit script status update event
+     console.log(`Emitting script status update for '${scriptName}' - Status: ${true}`);
+     server.emit("script-status-update", { script: scriptName, status: false });
   }
 });
 
@@ -124,6 +131,73 @@ app.get('/script-status', (req, res) => {
   }
 
   res.json(scriptStatus);
+});
+
+// Switch on all scripts
+app.post('/start-all-scripts', (req, res) => {
+  console.log(req)
+  // Iterate through each script in the pythonInterpreterScripts array
+  pythonInterpreterScripts.forEach((scriptName) => {
+    if (!runningScripts[scriptName]) {
+      startPythonScript(scriptName);
+      console.log(`Script '${scriptName}' started`);
+    } else {
+      console.log(`Script '${scriptName}' is already running`);
+    }
+  });
+
+  // Iterate through each script in the condaInterpreterScripts array
+  condaInterpreterScripts.forEach((scriptName) => {
+    if (!runningScripts[scriptName]) {
+      startPythonScript(scriptName);
+      console.log(`Script '${scriptName}' started`);
+    } else {
+      console.log(`Script '${scriptName}' is already running`);
+    }
+  });
+
+  res.send('All scripts switched on');
+});
+
+
+// Switch off all scripts
+app.post('/stop-all-scripts', (req, res) => {
+  // Iterate through each script in the pythonInterpreterScripts array
+  pythonInterpreterScripts.forEach((scriptName) => {
+    if (runningScripts[scriptName]) {
+      stopPythonScript(scriptName);
+      console.log(`Script '${scriptName}' stopped`);
+    } else {
+      console.log(`Script '${scriptName}' is not running`);
+    }
+  });
+
+  // Iterate through each script in the condaInterpreterScripts array
+  condaInterpreterScripts.forEach((scriptName) => {
+    if (runningScripts[scriptName]) {
+      stopPythonScript(scriptName);
+      console.log(`Script '${scriptName}' stopped`);
+    } else {
+      console.log(`Script '${scriptName}' is not running`);
+    }
+  });
+
+  res.send('All scripts switched off');
+});
+
+
+app.get('/scripts-status-all', (req, res) => {
+  // const scriptStatus = {};
+
+  // for (const scriptName in runningScripts) {
+  //   scriptStatus[scriptName] = true; // Set the status to true (running) for each script in runningScripts
+  // }
+  // console.log(scriptStatus, 'hello')
+  // if (!scriptStatus) {
+  //   scriptStatus[scriptName] = false; 
+  // }
+
+  res.json(runningScripts);
 });
 
 httpServer.listen(9000, () => {
